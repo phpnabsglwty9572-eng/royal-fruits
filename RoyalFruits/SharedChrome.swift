@@ -23,15 +23,19 @@ struct CasinoBackdrop: View {
     var dim: Double
 
     var body: some View {
-        ZStack {
-            Royal.void
-            Image(image)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-            Royal.overlay.opacity(dim)
-                .ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                Royal.void
+                Image(image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                Royal.overlay.opacity(dim)
+            }
         }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
@@ -69,6 +73,7 @@ struct GoldCircleButton: View {
                     .foregroundStyle(Royal.goldSoft)
             }
             .frame(width: 46, height: 46)
+            .clipShape(Circle())
             .overlay(Circle().stroke(Royal.gold, lineWidth: 3))
             .shadow(color: Color(red: 1, green: 176 / 255, blue: 0).opacity(0.65), radius: 5, y: 4)
             .overlay(
@@ -105,6 +110,7 @@ struct SpinCapsule: View {
                 .foregroundStyle(Royal.goldSoft)
         }
         .frame(width: 190, height: 92)
+        .clipShape(Capsule())
         .overlay(
             Capsule()
                 .stroke(Royal.gold, lineWidth: 3)

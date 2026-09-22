@@ -8,17 +8,23 @@ struct GameView: View {
     var body: some View {
         ZStack {
             CasinoBackdrop(image: "CasinoTable", dim: 0.24)
-            VStack(spacing: 14) {
-                header
-                walletBar
-                machine
-                betRow
-                Spacer(minLength: 0)
-                bottomDock
+
+            GeometryReader { geo in
+                let reelWindow = min(264, max(198, geo.size.height * 0.31))
+                VStack(spacing: 12) {
+                    header
+                    walletBar
+                    machine(reelWindow: reelWindow)
+                    betRow
+                    spinButton
+                    HomeIndicator
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 10)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 14)
 
             if store.showWinBurst {
                 WinBurstOverlay(amount: store.lastWin)
@@ -35,50 +41,61 @@ struct GameView: View {
     }
 
     private var header: some View {
-        HStack {
-            GoldCircleButton(system: "house.fill") {
-                store.autoPlay = false
-                store.audio.click()
-                withAnimation { store.route = .home }
+        ZStack {
+            HStack {
+                GoldCircleButton(system: "house.fill") {
+                    store.autoPlay = false
+                    store.audio.click()
+                    withAnimation { store.route = .home }
+                }
+                Spacer()
+                GoldCircleButton(system: "gearshape.fill") {
+                    store.audio.click()
+                    store.showSettings = true
+                }
             }
-            Spacer()
             BrandMark(titleSize: 18, subtitleSize: 9, titleTracking: 1.8, subtitleTracking: 2.16)
-            Spacer()
-            GoldCircleButton(system: "gearshape.fill") {
-                store.audio.click()
-                store.showSettings = true
-            }
+                .allowsHitTesting(false)
         }
         .frame(height: 48)
     }
 
     private var walletBar: some View {
-        HStack {
+        HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("余额").font(Royal.semi(11)).tracking(0.88).foregroundStyle(Royal.muted)
-                Text("¥ \(store.coins.formatted())").font(Royal.extra(20)).foregroundStyle(Royal.cream)
+                Text("¥ \(store.coins.formatted())")
+                    .font(Royal.extra(20))
+                    .foregroundStyle(Royal.cream)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Rectangle().fill(Royal.bronze).frame(width: 1, height: 42)
-            Spacer()
-            VStack(alignment: .leading, spacing: 2) {
+
+            VStack(alignment: .trailing, spacing: 2) {
                 Text("累积奖池").font(Royal.semi(11)).tracking(0.88).foregroundStyle(Royal.muted)
-                Text("¥ \(store.jackpot.formatted())").font(Royal.extra(20)).foregroundStyle(Royal.gold)
+                Text("¥ \(store.jackpot.formatted())")
+                    .font(Royal.extra(20))
+                    .foregroundStyle(Royal.gold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Royal.panel, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Royal.bronze))
-        .shadow(color: .black.opacity(0.6), radius: 8, y: 5)
     }
 
-    private var machine: some View {
+    private func machine(reelWindow: CGFloat) -> some View {
         VStack(spacing: 10) {
             HStack {
                 Text("中奖线  01 / 05").font(Royal.bold(12)).foregroundStyle(Royal.cream)
                 Spacer()
-                Text("幸运倍率  × \(store.paylineHit ? max(store.grid[1][0].lineMultiplier, 10) : 10)")
+                Text("幸运倍率  × \(store.paylineHit ? store.grid[1][0].lineMultiplier : 10)")
                     .font(Royal.black(13))
                     .foregroundStyle(Royal.gold)
             }
@@ -86,113 +103,140 @@ struct GameView: View {
             .frame(height: 30)
             .background(Royal.banner, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            ZStack {
-                HStack(spacing: 6) {
-                    ForEach(0..<3, id: \.self) { col in
-                        reel(col)
-                    }
-                }
-                .padding(5)
-                .blur(radius: store.reelBlur)
-
-                Rectangle()
-                    .fill(Royal.crimson)
-                    .frame(height: 3)
-                    .shadow(color: Royal.crimson.opacity(linePulse ? 0.85 : 0.35), radius: linePulse ? 10 : 4)
-                    .padding(.horizontal, 6)
-                    .offset(y: 2)
-
-                HStack {
-                    Image("PaylineCap")
-                        .resizable()
-                        .frame(width: 12, height: 12)
-                    Spacer()
-                }
-                .padding(.leading, 1)
-            }
-            .frame(height: 264)
-            .background(Royal.reelWood, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Royal.gold, lineWidth: 2))
+            reelWindowView(height: reelWindow)
 
             Text(store.banner)
                 .font(Royal.extra(14))
                 .foregroundStyle(store.paylineHit ? Royal.winGreen : Royal.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity)
-                .scaleEffect(store.paylineHit ? 1.04 : 1)
-                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: store.paylineHit)
+                .frame(height: 18)
         }
         .padding(10)
         .background(Royal.panelDeep, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Royal.antique, lineWidth: 2))
-        .shadow(color: .black.opacity(0.6), radius: 8, y: 5)
-        .shadow(color: Royal.crimson.opacity(0.4), radius: 12)
+        .shadow(color: Royal.crimson.opacity(0.28), radius: 10)
     }
 
-    private func reel(_ col: Int) -> some View {
-        VStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { row in
-                Text(store.grid[row][col].glyph)
-                    .font(.system(size: 48))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 84)
-                    .background(Royal.reelCream)
-                    .overlay(alignment: .bottom) {
-                        if row < 2 { Rectangle().fill(Royal.reelLine).frame(height: 1) }
+    private func reelWindowView(height: CGFloat) -> some View {
+        let inset: CGFloat = 5
+        let gap: CGFloat = 6
+        let cellH = max(58, (height - inset * 2) / 3)
+
+        return ZStack {
+            HStack(spacing: gap) {
+                ForEach(0..<3, id: \.self) { col in
+                    VStack(spacing: 0) {
+                        ForEach(0..<3, id: \.self) { row in
+                            symbolCell(store.grid[row][col], row: row, height: cellH)
+                        }
                     }
-                    .scaleEffect(store.paylineHit && row == 1 ? 1.08 : 1)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(
+                        Color(red: 244 / 255, green: 231 / 255, blue: 215 / 255),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
+                }
             }
+            .padding(inset)
+            .blur(radius: store.reelBlur)
+
+            Rectangle()
+                .fill(Royal.crimson)
+                .frame(height: 3)
+                .shadow(color: Royal.crimson.opacity(linePulse ? 0.9 : 0.35), radius: linePulse ? 8 : 3)
+                .padding(.horizontal, 8)
+
+            HStack {
+                Image("PaylineCap")
+                    .resizable()
+                    .frame(width: 12, height: 12)
+                Spacer()
+            }
+            .padding(.leading, 2)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .background(Color(red: 244 / 255, green: 231 / 255, blue: 215 / 255), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(height: height)
+        .clipped()
+        .background(Royal.reelWood, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Royal.gold, lineWidth: 2))
+    }
+
+    private func symbolCell(_ symbol: SlotSymbol, row: Int, height: CGFloat) -> some View {
+        let hit = store.paylineHit && row == 1
+        return Text(symbol.glyph)
+            .font(.system(size: min(44, height * 0.62)))
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .background(Royal.reelCream)
+            .overlay(alignment: .bottom) {
+                if row < 2 { Rectangle().fill(Royal.reelLine).frame(height: 1) }
+            }
+            .scaleEffect(hit ? 1.06 : 1)
+            .animation(.spring(response: 0.32, dampingFraction: 0.72), value: hit)
     }
 
     private var betRow: some View {
-        HStack {
-            VStack(spacing: 5) {
-                Button {
-                    store.toggleAuto()
-                } label: {
-                    ZStack {
-                        Circle().fill(Royal.panelDeep)
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(store.autoPlay ? Royal.crimson : Royal.gold)
-                    }
-                    .frame(width: 46, height: 46)
-                    .overlay(Circle().stroke(store.autoPlay ? Royal.crimson : Royal.bronze))
-                }
-                .buttonStyle(PressScale())
-                Text("自动旋转").font(Royal.semi(11)).foregroundStyle(Royal.muted)
-            }
-            Spacer()
-            HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 8) {
+            sideControl(
+                icon: "arrow.clockwise",
+                title: "自动旋转",
+                active: store.autoPlay
+            ) { store.toggleAuto() }
+
+            HStack(spacing: 12) {
                 roundMini("−") { store.decreaseBet() }
                 VStack(spacing: 0) {
                     Text("下注").font(.system(size: 10)).foregroundStyle(Royal.muted)
-                    Text("¥ \(store.bet)").font(Royal.extra(18)).foregroundStyle(Royal.gold)
+                    Text("¥ \(store.bet)")
+                        .font(Royal.extra(18))
+                        .foregroundStyle(Royal.gold)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                .frame(minWidth: 49)
+                .frame(minWidth: 52)
                 roundMini("+") { store.increaseBet() }
             }
-            .padding(.horizontal, 9)
+            .padding(.horizontal, 10)
             .frame(height: 50)
             .background(Royal.panel, in: Capsule())
             .overlay(Capsule().stroke(Royal.bronze))
-            Spacer()
-            VStack(spacing: 5) {
-                Button { store.audio.click(); store.showRules = true } label: {
-                    ZStack {
-                        Circle().fill(Royal.panelDeep)
-                        Text("i").font(Royal.bold(20)).foregroundStyle(Royal.gold)
-                    }
-                    .frame(width: 46, height: 46)
-                    .overlay(Circle().stroke(Royal.bronze))
-                }
-                .buttonStyle(PressScale())
-                Text("规则").font(Royal.semi(11)).foregroundStyle(Royal.muted)
+
+            sideControl(icon: nil, title: "规则", glyph: "i") {
+                store.audio.click()
+                store.showRules = true
             }
         }
-        .frame(height: 58)
+        .frame(height: 64)
+    }
+
+    private func sideControl(icon: String?, title: String, glyph: String? = nil, active: Bool = false, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 4) {
+            Button(action: action) {
+                ZStack {
+                    Circle().fill(Royal.panelDeep)
+                    if let icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(active ? Royal.crimson : Royal.gold)
+                    } else {
+                        Text(glyph ?? "")
+                            .font(Royal.bold(18))
+                            .foregroundStyle(Royal.gold)
+                    }
+                }
+                .frame(width: 46, height: 46)
+                .overlay(Circle().stroke(active ? Royal.crimson : Royal.bronze))
+            }
+            .buttonStyle(PressScale())
+            Text(title)
+                .font(Royal.semi(11))
+                .foregroundStyle(Royal.muted)
+                .lineLimit(1)
+        }
+        .frame(width: 64)
     }
 
     private func roundMini(_ title: String, action: @escaping () -> Void) -> some View {
@@ -206,28 +250,16 @@ struct GameView: View {
         .buttonStyle(PressScale())
     }
 
-    private var bottomDock: some View {
-        VStack {
-            Button {
-                Task { await store.spin() }
-            } label: {
-                SpinCapsule(title: store.isSpinning ? "GO" : "SPIN", glowing: shine || store.isSpinning)
-                    .opacity(store.canSpin || store.isSpinning ? 1 : 0.55)
-            }
-            .buttonStyle(PressScale())
-            .disabled(store.isSpinning)
-            Spacer()
-            HomeIndicator()
+    private var spinButton: some View {
+        Button {
+            Task { await store.spin() }
+        } label: {
+            SpinCapsule(title: store.isSpinning ? "GO" : "SPIN", glowing: shine || store.isSpinning)
+                .opacity(store.canSpin || store.isSpinning ? 1 : 0.55)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
-        .background(
-            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
-                .fill(.white.opacity(0.10))
-        )
-        .overlay(alignment: .top) {
-            Rectangle().fill(Royal.gold).frame(height: 1)
-        }
+        .buttonStyle(PressScale())
+        .disabled(store.isSpinning)
+        .padding(.top, 4)
     }
 }
 
@@ -243,10 +275,10 @@ struct WinBurstOverlay: View {
                     .fill(i.isMultiple(of: 2) ? Royal.gold : Royal.crimson)
                     .frame(width: burst ? 10 : 4, height: burst ? 10 : 4)
                     .offset(
-                        x: burst ? cos(Double(i) / 14 * .pi * 2) * 120 : 0,
-                        y: burst ? sin(Double(i) / 14 * .pi * 2) * 90 : 0
+                        x: burst ? cos(Double(i) / 14 * .pi * 2) * 110 : 0,
+                        y: burst ? sin(Double(i) / 14 * .pi * 2) * 80 : 0
                     )
-                    .opacity(burst ? 0.15 : 0.9)
+                    .opacity(burst ? 0.12 : 0.85)
             }
             VStack(spacing: 8) {
                 Text("YOU WIN")
